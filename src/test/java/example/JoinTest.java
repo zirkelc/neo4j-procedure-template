@@ -11,6 +11,7 @@ import org.neo4j.harness.Neo4j;
 import org.neo4j.harness.Neo4jBuilders;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class JoinTest {
@@ -19,10 +20,8 @@ public class JoinTest {
 
     @BeforeAll
     void initializeNeo4j() {
-        this.embeddedDatabaseServer = Neo4jBuilders.newInProcessBuilder()
-                .withDisabledServer()
-                .withFunction(Join.class)
-                .build();
+        this.embeddedDatabaseServer = Neo4jBuilders.newInProcessBuilder().withDisabledServer()
+                .withFunction(Join.class).build();
     }
 
     @AfterAll
@@ -33,14 +32,28 @@ public class JoinTest {
     @Test
     void joinsStrings() {
         // This is in a try-block, to make sure we close the driver after the test
-        try(Driver driver = GraphDatabase.driver(embeddedDatabaseServer.boltURI());
-            Session session = driver.session()) {
+        try (Driver driver = GraphDatabase.driver(embeddedDatabaseServer.boltURI());
+                Session session = driver.session()) {
 
             // When
-            String result = session.run( "RETURN example.join(['Hello', 'World']) AS result").single().get("result").asString();
+            String result = session.run("RETURN example.join(['Hello', 'World']) AS result")
+                    .single().get("result").asString();
 
             // Then
-            assertThat( result).isEqualTo(( "Hello,World" ));
+            assertThat(result).isEqualTo(("Hello,World"));
+        }
+    }
+
+    @Test
+    void joinsStrings_fail() {
+        // This is in a try-block, to make sure we close the driver after the test
+        try (Driver driver = GraphDatabase.driver(embeddedDatabaseServer.boltURI());
+                Session session = driver.session()) {
+
+            assertThatThrownBy(() -> {
+                session.run("RETURN example.join(['Hello', 'World'], '') AS result").single()
+                        .get("result").asString();
+            }).hasStackTraceContaining(IllegalArgumentException.class.getName());
         }
     }
 }
